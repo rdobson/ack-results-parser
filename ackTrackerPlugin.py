@@ -6,7 +6,7 @@ import tempfile, tarfile, os
 from acklogparser import *
 import ftplib, netrc
 from argparse import ArgumentParser                                                                          
-server_url = 'https://tracker.vmd.citrix.com'                                                         
+server_url = 'https://tracker-test.uk.xensource.com'                                                         
                                                                           
 jira = JIRA(options={'server':server_url},                                
             #basic_auth=(tracker_username, tracker_password),              

@@ -48,14 +48,6 @@ class JiraTicket(object):
         os.system("curl -n %s -o %s -s" % (url,attachment_path))
         return attachment_path
     
-    def get_attachmentzip_path(self, id):
-        """Returns attachment file path"""
-        url = "%s/secure/attachmentzip/%s.zip" % (server_url, id)
-        (fh, zippath) = tempfile.mkstemp()
-        os.close(fh)
-        os.system("curl -n %s -o %s -s" % (url,zippath))           
-        return zippath
-    
     def create_issue_link(self, remote_key):
         """:param remote_key is key of the remote ticket to be linked"""
         return self.jira.create_issue_link('Related',self.key,remote_key)                                                                      
@@ -104,16 +96,17 @@ class HCLSubmission(JiraTicket):
         display_results(result_dict)
         return result_dict
 
-    def get_sub_type(self):
-        """Classify the submission into Server|Storage|NIC|HBA|CNA|GPU|DD"""
-        #TODO
-        
-        pass
-
     def get_device_tested(self):
         """Derives name from Device Tested Column"""
         return self.issue.fields.customfield_10132
 
+    def get_attachmentzip_path(self, id):
+        """Returns attachment file path"""
+        url = "%s/secure/attachmentzip/%s.zip" % (server_url, id)
+        (fh, zippath) = tempfile.mkstemp()
+        os.close(fh)
+        os.system("curl -n %s -o %s -s" % (url,zippath))
+        return zippath
 
 class DDSubmission(HCLSubmission):
     def validate(self):
@@ -142,7 +135,7 @@ class RemoteCopyToCRD():
 
     def get_doc_attachment(self, master_ticket):
         for file in master_ticket.issue.fields.attachment:
-            if re.search ("msword",file.mimeType):
+            if re.search ('doc',file.filename):
                 return (master_ticket.get_attachment_path(file.id), file.filename)
         print("Error: Missing the Verification Form (doc) which is needed to update Citrix Ready for market place.")
         return (None, None)
@@ -172,74 +165,62 @@ class SFFTPClient():
 
     def __init__(self):
         self.machine = 'citrix.sharefileftp.com'
-
-    def get_session(self, machine):
         info = netrc.netrc("/home/sagnikd/.netrc")
-        if info.authenticators(machine):
-            (user, account, password)= info.authenticators(machine)
+        if info.authenticators(self.machine):
+            (user, account, password)= info.authenticators(self.machine)
         else:
-            print("User credentials not present in .netrc for %s" % machine)
-        return ftplib.FTP(machine,user,password)
-
-    def get_ticket_type(self, attachment):
-        """Determines and returns the type of submission = 'Servers'|'Storage Arrays'|'NICs'|'HBAs and CNAs'|'GPUs'|'Driver Disks'"""
-        pass
-
-    def traverse_to_upload_path(self, version, ticket_type, filename):
-        """Returns the session created after traversing to appropriate upload path for the required XS version and ticket type"""
-        session = self.get_session(self.machine)
-        #Logs are stored in /XenServer HCL/Hardware Certification Logs/XenServer *
-        try:
-            session.cwd('XenServer HCL')
-            session.cwd('Hardware Certification Logs')
-            for folder in session.nlst():
-                if re.search(version, folder):
-                    session.cwd(folder)
-                    session.cwd(ticket_type)
-
-                    #Note filename is the product name
-                    #filename =  "%s %s" % (manufacturer, product)
-                    print ("\n")
-                    if filename not in session.nlst():
-                        session.mkd(filename)
-                    else:
-                        print ("Submission found to be already existing. Adding these logs in the same folder.")
-                    session.cwd(filename)
-                    print ("Successfully traversed to upload path: %s" % session.pwd())
-                    return session
-            print("Could not find the version at all")
-        except:
-            print ("FTP Directory doesn't exist. Must ahve been moved.")
-            session.close()
-
-    def upload_file(self, session, upload_filepath, filename):
+            print("User credentials not present in .netrc for %s" % self.machine)
+        self.session = ftplib.FTP(self.machine,user,password)
+        
+    def upload(self, upload_filepath, upload_path):
         """Uploads file to current directory on sharefile"""
+        
+        filename = upload_path.split('/')[-1]
+
+        for dir in upload_path.split('/')[1:-1]:
+            if dir not in self.session.nlst():
+                print("Creating new dir %s" % dir)
+                self.session.mkd(dir)
+            self.session.cwd(dir)
+
         print ('Uploading file %s' % filename)
-        print ('Upload to directory %s' % session.pwd())
-        out = session.storbinary('STOR %s' % filename ,open(upload_filepath, 'rb'), blocksize = 8192*1024)
+        print ('Upload to directory %s' % self.session.pwd())
+        out = self.session.storbinary('STOR %s' % filename ,open(upload_filepath, 'rb'), blocksize = 8192*1024)
         if re.search('Transfer Complete', out):
             print ("Transfer Completed.")
-            return
         else:
             print ("Transfer was unsuccessful. Please check file size")
-
-            
+        self.session.close()
     
 def main(options):
     #Dictionary which maps the Folder directory with the type 
-    tag_dict = {'server':'Servers','stor':'Storage Arrays','nic': 'NICs' ,'hba':'HBAs and CNAs', 'cna':'HBAs and CNAs', 'gpu':'GPUs', 'dd':'Driver Disks', 'test':'blaj'}
-    
-    key = options.key.split(',')[1]
-    if tag_dict[key] == 'server':
-        ticket = HCLSubmission(jira, options.key.split(',')[0])
-    else:
-        ticket = GenericSubmission(jira, options.key.split(',')[0])
-    print ticket.get_summary()
+    tag_dict = {'server':'Servers',
+                'stor':'Storage Arrays',
+                'nic': 'NICs' ,
+                'hba':'HBAs and CNAs', 
+                'cna':'HBAs and CNAs', 
+                'gpu':'GPUs', 
+                'dd':'Driver Disks', 
+                'test':'blaj'}
+    version_list = ['Other',
+                'XenServer 5.0',
+                'XenServer 5.5',
+                'XenServer 5.6',
+                'XenServer 5.6.x',
+                'XenServer 6.0.x',
+                'XenServer 6.1.0',
+                'XenServer 6.2.0']
 
+    key = options.subtype
+    if tag_dict[key] == 'server':
+        ticket = HCLSubmission(jira, options.ticket)
+    else:
+        ticket = GenericSubmission(jira, options.ticket)
+    print ticket.get_summary()
+    
     #For non HCL Submission, we need additional parameters as below
-    if len(options.key.split(','))> 2:
-        product_name = options.key.split(',')[3]
-        version = options.key.split(',')[2]        
+    product_name = options.name
+    version = options.version      
     
     #To display the ack-submission if there is one:
     if ticket.get_type() == 'HCL Submission':
@@ -248,18 +229,28 @@ def main(options):
         dict = ticket.get_ack_attachment_dict(ack_path)
         version = dict['xs_version']
 
-        product_name = ticket.get_device_tested()  #override product name with "Device Tested" field
         #if Device Tested is empty, product name will be taken from result dict
         if not product_name:
+            product_name = ticket.get_device_tested()  
+        else:
             product_name = "%s %s" % (dict['system-manufacturer'].strip(), 
                                       dict['product'].strip())
     print ("\nDevice Tested: %s" % product_name)
     
-    session = SFFTPClient().traverse_to_upload_path(version, tag_dict[key], product_name)
+    #derive upload_path for FTP upload
+    upload_path = "/XenServer HCL/Hardware Certification Logs"
+    for v in version_list:
+        if re.search(version, v):
+            upload_path += "/%s" % v
+            break
+    upload_path += "/%s" % tag_dict[key]
+    upload_path += "/%s" % product_name
+    zipfile = ticket.issue.key + ".zip"
+    upload_path += "/%s" % zipfile   
+    
     #Path of zipfile that will be stored
     zippath = ticket.get_attachmentzip_path(ticket.issue.id)
-    zipfile = ticket.issue.key + ".zip"
-    SFFTPClient().upload_file(session, zippath, zipfile)
+    SFFTPClient().upload(zippath, upload_path)
     
     #RemoteCopy to CRD if required. 
     t2 = RemoteCopyToCRD().run(ticket)
@@ -268,8 +259,11 @@ def main(options):
         print (t2.get_summary())
 
 if __name__ == "__main__":
-     parser = ArgumentParser()
-     parser.add_argument("-t", "--ticket", dest="key",required=True,help="HCL-435,(server|stor|nic|hba|cna|gpu|dd), 6.2.0[Optional], Product_Name [Optional]")
-     args = parser.parse_args() 
-     main(args)
+    parser = ArgumentParser()
+    parser.add_argument("-t", "--ticket", dest="ticket",required=True,help="HCL-435,(server|stor|nic|hba|cna|gpu|dd), 6.2.0[Optional], Product_Name [Optional]")
+    parser.add_argument("-s", "--subtype", dest="subtype", required=True) 
+    parser.add_argument("-v", "--version", dest="version", required=False)
+    parser.add_argument("-n", "--name", dest="name", required=False)  
+    args = parser.parse_args() 
+    main(args)
 

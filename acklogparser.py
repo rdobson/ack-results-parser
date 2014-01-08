@@ -118,7 +118,7 @@ def countTestFailures(tarfilename):
         if result.firstChild.nodeValue != 'pass':
             count = count + 1
     #fail product lists
-    return count       
+    return (count,test_conf)       
     
 
 def main(options):
@@ -130,7 +130,7 @@ def main(options):
     #display_results(dict, keys)
     display_results(dict)
     
-    count = countTestFailures(tarfilename)
+    (count, test_conf) = countTestFailures(tarfilename)
     testconf_path = extract_file_from_tar(tarfilename, 'test_run.conf', os.getcwd())
     test_conf = xml.dom.minidom.parse(open(testconf_path))
 

@@ -11,7 +11,7 @@ setup(
     ]),
     url="http://unspeicifed.yet",
     packages=find_packages(),
-    install_requires=[],
+    install_requires=['jira-python'],
     tests_require=[
         "nose",
     ],

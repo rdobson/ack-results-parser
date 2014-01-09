@@ -1,17 +1,18 @@
-#!/usr/bin/env python
+"""Python script for processing a submission"""
 
-from jira.client import JIRA, GreenHopper
+from jira.client import JIRA
+import re
+from xsjira.models import Task, HCLSubmission, GenericSubmission
+from sfftp.client import SFFTPClient
+from argparse import ArgumentParser
 
-from xsjira.models import *
-from sfftp.client import *
+SERVER_URL = 'https://tracker-test.uk.xensource.com'
 
-server_url = 'https://tracker-test.uk.xensource.com'
-
-jira = JIRA(options={'server': server_url},
+JIRA = JIRA(options={'server': SERVER_URL},
             )
 
 
-class RemoteCopyToCRD():
+class RemoteCopyToCRD(object):  # pylint: disable=R0903
     """Create remote copy in Project CRD of given ticket for
        update marketplace.
     """
@@ -19,25 +20,14 @@ class RemoteCopyToCRD():
     crd_user = 'sagnikd'
     crd_pjt_key = 'HCL'
 
-    def add_hcl_link_comment(self, master_ticket, crd_ticket):
-        for comment in master_ticket.list_comments():
-            if re.search("http://", comment.body):
-                crd_ticket.add_comment(comment.body)
-
-    def get_doc_attachment(self, master_ticket):
-        for file in master_ticket.issue.fields.attachment:
-            if re.search('doc', file.filename):
-                return (master_ticket.get_attachment_path(file.id),
-                        file.filename)
-        print("Error: Missing the Verification Form (doc) which is " +
-              "needed to update Citrix Ready for market place.")
-        return (None, None)
+    def __init__(self):
+        self.crd_ticket = None
 
     def run(self, master_ticket):
-
-        (filepath, filename) = self.get_doc_attachment(master_ticket)
+        """Perform the remote copy"""
+        (filepath, filename) = get_doc_attachment(master_ticket)
         if filepath:
-            t = master_ticket.create_issue(
+            ticket = master_ticket.create_issue(
                 {
                     'project': {'key': self.crd_pjt_key},
                     'summary': 'CLONE Of %s' % master_ticket.get_summary(),
@@ -46,10 +36,10 @@ class RemoteCopyToCRD():
                 }
                 )
 
-        self.crd_ticket = Task(jira, t.key)
+        self.crd_ticket = Task(JIRA, ticket.key)
         self.crd_ticket.create_issue_link(master_ticket.key)
 
-        self.add_hcl_link_comment(master_ticket, self.crd_ticket)
+        add_hcl_link_comment(master_ticket, self.crd_ticket)
         self.crd_ticket.add_attachment(filepath, filename)
         self.crd_ticket.add_comment(
             "Hi Gaurav,\nCould you please update this to market " +
@@ -60,6 +50,7 @@ class RemoteCopyToCRD():
 
 
 def main(options):
+    """Main function"""
     #Dictionary which maps the Folder directory with the type
     tag_dict = {'server': 'Servers',
                 'stor': 'Storage Arrays',
@@ -82,9 +73,9 @@ def main(options):
 
     key = options.subtype
     if tag_dict[key] == 'server':
-        ticket = HCLSubmission(jira, options.ticket)
+        ticket = HCLSubmission(JIRA, options.ticket)
     else:
-        ticket = GenericSubmission(jira, options.ticket)
+        ticket = GenericSubmission(JIRA, options.ticket)
     print ticket.get_summary()
 
     #For non HCL Submission, we need additional parameters as below
@@ -94,23 +85,23 @@ def main(options):
     #To display the ack-submission if there is one:
     if ticket.get_type() == 'HCL Submission':
         (ack_path, ack_filename) = ticket.get_ack_attachment()
-        print ("%s found.\nExtracting Product Info.." % ack_filename)
-        dict = ticket.get_ack_attachment_dict(ack_path)
-        version = dict['xs_version']
+        print "%s found.\nExtracting Product Info.." % ack_filename
+        adict = ticket.get_ack_attachment_dict(ack_path)
+        version = adict['xs_version']
 
         #if Device Tested is empty, product name will be taken from result dict
         if not product_name:
             product_name = ticket.get_device_tested()
         else:
-            product_name = "%s %s" % (dict['system-manufacturer'].strip(),
-                                      dict['product'].strip())
-    print ("\nDevice Tested: %s" % product_name)
+            product_name = "%s %s" % (adict['system-manufacturer'].strip(),
+                                      adict['product'].strip())
+    print "\nDevice Tested: %s" % product_name
 
     #derive upload_path for FTP upload
     upload_path = "/XenServer HCL/Hardware Certification Logs"
-    for v in version_list:
-        if re.search(version, v):
-            upload_path += "/%s" % v
+    for version in version_list:
+        if re.search(version, version):
+            upload_path += "/%s" % version
             break
     upload_path += "/%s" % tag_dict[key]
     upload_path += "/%s" % product_name
@@ -122,18 +113,37 @@ def main(options):
     SFFTPClient().upload(zippath, upload_path)
 
     #RemoteCopy to CRD if required.
-    t2 = RemoteCopyToCRD().run(ticket)
-    if t2 is not None:
-        print ("%s Created" % t2.key)
-        print (t2.get_summary())
+    ticket2 = RemoteCopyToCRD().run(ticket)
+    if ticket2 is not None:
+        print "%s Created" % ticket2.key
+        print ticket2.get_summary()
+
+
+def add_hcl_link_comment(master_ticket, crd_ticket):
+    """Add a HCL link to the specified ticket"""
+    for comment in master_ticket.list_comments():
+        if re.search("http://", comment.body):
+            crd_ticket.add_comment(comment.body)
+
+
+def get_doc_attachment(master_ticket):
+    """Get a doc from a ticket"""
+    for afile in master_ticket.issue.fields.attachment:
+        if re.search('doc', afile.filename):
+            return (master_ticket.get_attachment_path(afile.id),
+                    afile.filename)
+    print("Error: Missing the Verification Form (doc) which is " +
+          "needed to update Citrix Ready for market place.")
+    return (None, None)
+
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("-t", "--ticket", dest="ticket", required=True,
-                        help="HCL-435,(server|stor|nic|hba|cna|gpu|dd)," +
-                        " 6.2.0[Optional], Product_Name [Optional]")
-    parser.add_argument("-s", "--subtype", dest="subtype", required=True)
-    parser.add_argument("-v", "--version", dest="version", required=False)
-    parser.add_argument("-n", "--name", dest="name", required=False)
-    args = parser.parse_args()
-    main(args)
+    argParser = ArgumentParser()  # pylint: disable=C0103
+    argParser.add_argument("-t", "--ticket", dest="ticket", required=True,
+                           help="HCL-435,(server|stor|nic|hba|cna|gpu|dd)," +
+                           " 6.2.0[Optional], Product_Name [Optional]")
+    argParser.add_argument("-s", "--subtype", dest="subtype", required=True)
+    argParser.add_argument("-v", "--version", dest="version", required=False)
+    argParser.add_argument("-n", "--name", dest="name", required=False)
+    cmdargs = argParser.parse_args()  # pylint: disable=C0103
+    main(cmdargs)

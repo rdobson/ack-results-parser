@@ -1,9 +1,18 @@
-#!/usr/bin/python
-nics_dict = {}
-hbas_dict = {}
-machine_dict = {"pass": [], "fail": []}  # seprates server Products PASS/FAIL
-failed_dict = {}
-dict = {
+"""Entry point script for parsing specified log files"""
+
+from argparse import ArgumentParser
+import tarfile
+import os
+import re
+import xml.dom.minidom
+import pprint
+# import models
+
+NICS_DICT = {}
+HBAS_DICT = {}
+MACHINE_DICT = {"pass": [], "fail": []}  # seprates server Products PASS/FAIL
+FAILED_DICT = {}
+SERVER_DICT = {
     'xs_version': u'None',
     'system-manufacturer': 'None',
     'sockets': 'None',
@@ -17,25 +26,19 @@ dict = {
     'hbas': [],
     }
 
-from argparse import ArgumentParser
-import tarfile
-import os
-import re
-import xml.dom.minidom
-import pprint
-# import models
-
 
 def extract_file_from_tar(tarfilename, filename, dest):
-    tf = tarfile.open(tarfilename)  # tarfilename is path of tar
-    path = filter(lambda x: os.path.basename(x) == filename, tf.getnames())
+    """Extract a specified file from a tar archive"""
+    tarf = tarfile.open(tarfilename)  # tarfilename is path of tar
+    path = filter(lambda x: os.path.basename(x) == filename, tarf.getnames())
     if not len(path):
-        path = filter(lambda x: re.search(filename, x), tf.getnames())
-    map(lambda x: tf.extract(x, path=dest), path)
+        path = filter(lambda x: re.search(filename, x), tarf.getnames())
+    map(lambda x: tarf.extract(x, path=dest), path)
     return os.path.join(dest, path[0])
 
 
-def result_parser(tarfilename, logsubdir):
+def result_parser(tarfilename, logsubdir):  # pylint: disable=R0914,R0912
+    """Parse a specified log archive"""
     bugtools_path = extract_file_from_tar(tarfilename=tarfilename,
                                           filename="bug-report",
                                           dest=logsubdir)
@@ -59,27 +62,30 @@ def result_parser(tarfilename, logsubdir):
 
     # XS-version
     for version in test_conf.getElementsByTagName("global_config"):
-        if 'xs_version' in version._attrs:
-            dict['xs_version'] = version._attrs['xs_version'].nodeValue
+        if 'xs_version' in version.attributes.keys():
+            SERVER_DICT['xs_version'] = version.attributes['xs_version']
 
     # CPU info and HBA pci-id info
-    hbaBusIdList = []
+    hba_bus_id_list = []
     for device in test_conf.getElementsByTagName("device"):
-        if 'family' in device._attrs:
-            dict['family'] = device._attrs['family'].nodeValue
-        if 'stepping' in device._attrs:
-            dict['stepping'] = device._attrs['stepping'].nodeValue
-        if 'model' in device._attrs:
-            dict['model'] = device._attrs['model'].nodeValue
-        if 'modelname' in device._attrs:
-            dict['modelname'] = device._attrs['modelname'].nodeValue
-        if 'socket_count' in device._attrs:
-            dict['sockets'] = device._attrs['socket_count'].nodeValue
-        if 'PCI_description' in device._attrs:
-            if device._attrs['PCI_description'].nodeValue not in dict['nics']:
-                dict['nics'].append(device._attrs['PCI_description'].nodeValue)
-        if 'device' in device._attrs:
-            hbaBusIdList.append(device._attrs['id'].nodeValue)
+        if 'family' in device.attributes.keys():
+            SERVER_DICT['family'] = device.attributes['family']
+        if 'stepping' in device.attributes.keys():
+            SERVER_DICT['stepping'] = device.attributes['stepping']
+        if 'model' in device.attributes.keys():
+            SERVER_DICT['model'] = device.attributes['model']
+        if 'modelname' in device.attributes.keys():
+            SERVER_DICT['modelname'] = device.attributes['modelname']
+        if 'socket_count' in device.attributes.keys():
+            SERVER_DICT['sockets'] = device.attributes['socket_count']
+        if 'PCI_description' in device.attributes.keys():
+            if device.attributes['PCI_description'] \
+                    not in SERVER_DICT['nics']:
+                SERVER_DICT['nics'].append(
+                    device.attributes['PCI_description']
+                    )
+        if 'device' in device.attributes.keys():
+            hba_bus_id_list.append(device.attributes['id'])
 
     # Chassis used info                 i
     lines = open(dmidecode_path).readlines()
@@ -88,9 +94,9 @@ def result_parser(tarfilename, logsubdir):
         if re.search('Chassis Information', lines[i]):
             for j in range(len(lines[i:])):
                 if re.search("Type", lines[i+j]):
-                    list = re.findall('(\w+):([\w\s\-]+)', lines[i+j])[0]
+                    mlist = re.findall(r'(\w+):([\w\s\-]+)', lines[i+j])[0]
                     # print "%s" % list
-                    dict['chassis'] = list[1]
+                    SERVER_DICT['chassis'] = mlist[1]
                     break
             break
     # vendor name
@@ -98,9 +104,9 @@ def result_parser(tarfilename, logsubdir):
         if re.search("System Information", lines[i]):
             for j in range(len(lines[i:])):
                 if re.search("Manufacturer", lines[j+i]):
-                    list = re.findall('([\w\s]+):([\w\s\-\[\]\.]+)',
-                                      lines[i+j])[0]
-                    dict['system-manufacturer'] = list[1]
+                    mlist = re.findall(r'([\w\s]+):([\w\s\-\[\]\.]+)',
+                                       lines[i+j])[0]
+                    SERVER_DICT['system-manufacturer'] = mlist[1]
                     break
             break
     # Pdt name
@@ -108,14 +114,14 @@ def result_parser(tarfilename, logsubdir):
         if re.search("System Information", lines[i]):
             for j in range(len(lines[i:])):
                 if re.search("Product Name", lines[j+i]):
-                    list = re.findall('([\w\s]+):([\w\s\-\[\]\.^\n]+)',
-                                      lines[i+j])[0]
-                    dict['product'] = list[1]
+                    mlist = re.findall(r'([\w\s]+):([\w\s\-\[\]\.^\n]+)',
+                                       lines[i+j])[0]
+                    SERVER_DICT['product'] = mlist[1]
                     break
             break
     # TODO ONLY IF format of logs are from ackdownload.py,
     # "machine" fetches exists
-    machine = tarfilename.split("-ack")[0]
+    # machine = tarfilename.split("-ack")[0]
 
     # lcpci -vv lines for extracting HBA data(Note: This is a workaround
     # due to existing bug of ACK not catching the right hba pci-ids)
@@ -133,13 +139,14 @@ def result_parser(tarfilename, logsubdir):
             if re.search(string, lines[i]):
                 index.append(i)
     for i in index:
-        dict['hbas'].append(re.findall('.*: ([\w\s\-\(\)\/\[\]]+)',
-                                       lines[i])[0].strip())
+        SERVER_DICT['hbas'].append(re.findall(r'.*: ([\w\s\-\(\)\/\[\]]+)',
+                                              lines[i])[0].strip())
 
     return dict
 
 
-def display_results(dict, keys=None):
+def display_results(resdict, keys=None):
+    """Print out results"""
     # Display rests
     keys = [
         'xs_version',
@@ -155,15 +162,16 @@ def display_results(dict, keys=None):
         'hbas',
     ]
     if keys is None:
-        keys = dict.keys()
+        keys = resdict.keys()
     for key in keys:
-        if type(dict[key]) == 'list':
-            print "%50s :" % key, "%-50s" % pprint.pprint(dict[key])
+        if type(SERVER_DICT[key]) == 'list':
+            print "%50s :" % key, "%-50s" % pprint.pprint(SERVER_DICT[key])
         else:
-            print "%50s : %s" % (key, dict[key])
+            print "%50s : %s" % (key, SERVER_DICT[key])
 
 
-def countTestFailures(tarfilename):
+def count_test_failures(tarfilename):
+    """From a tar file, count failures"""
     testconf_path = extract_file_from_tar(tarfilename, 'test_run.conf',
                                           os.getcwd())
     test_conf = xml.dom.minidom.parse(open(testconf_path))
@@ -176,13 +184,15 @@ def countTestFailures(tarfilename):
 
 
 def main(options):
+    """main function"""
     tarfilename = options.filename  # downloadACK(runjob, runmachine)
     xenrtmachine = None  # runmachine
-    dict = result_parser(tarfilename, os.getcwd())
+    global SERVER_DICT
+    SERVER_DICT = result_parser(tarfilename, os.getcwd())
     # display_results(dict, keys)
-    display_results(dict)
+    display_results(SERVER_DICT)
 
-    (count, test_conf) = countTestFailures(tarfilename)
+    (count, test_conf) = count_test_failures(tarfilename)
     testconf_path = extract_file_from_tar(tarfilename, 'test_run.conf',
                                           os.getcwd())
     test_conf = xml.dom.minidom.parse(open(testconf_path))
@@ -193,44 +203,44 @@ def main(options):
         for exception in test_conf.getElementsByTagName('exception'):
             if exception.firstChild.nodeValue not in exception_list:
                 exception_list.append(exception.firstChild.nodeValue)
-        # maintain machine_dict only for xenRT machines
+        # maintain MACHINE_DICT only for xenRT machines
         if xenrtmachine:
-            failed_dict[xenrtmachine] = exception_list
+            FAILED_DICT[xenrtmachine] = exception_list
 
-            if dict['product'] not in machine_dict['pass']:
-                if dict['product'] not in machine_dict['fail']:
-                    machine_dict['fail'].append(dict['product'])
+            if SERVER_DICT['product'] not in MACHINE_DICT['pass']:
+                if SERVER_DICT['product'] not in MACHINE_DICT['fail']:
+                    MACHINE_DICT['fail'].append(SERVER_DICT['product'])
             print ("*******%s tests FAILED for %s *********" %
-                   (count, runmachine))
+                   (count, xenrtmachine))
         else:
-            failed_dict[dict['product']] = exception_list
+            FAILED_DICT[SERVER_DICT['product']] = exception_list
     else:
         # added check here
-        if xenrtmachine and dict['product'] not in passed_list:
+        if xenrtmachine:  # and SERVER_DICT['product'] not in passed_list:
             # remove duplicacy
-            if dict['product'] not in machine_dict['pass']:
-                machine_dict['pass'].append(dict['product'])
+            if SERVER_DICT['product'] not in MACHINE_DICT['pass']:
+                MACHINE_DICT['pass'].append(SERVER_DICT['product'])
     if xenrtmachine:
-        print ("#"*30)
-        print ("NICS LISTING HERE")
-        display_results(nics_dict)
-        print ("NICS LISTING OVER")
-        print ("#"*30)
-        print ("HBAs HERE")
-        display_results(hbas_dict)
-        print ("HBAs listing over")
-        print ("#"*30)
-        print ("MY PASSED PRODUCTS")
-        pprint.pprint(machine_dict['pass'])
-        print ("#"*30)
-        print ("MY FAIL PRODUCTS")
-        pprint.pprint(machine_dict['fail'])
-        print ("#"*30, "failed_dict below")
-    display_results(failed_dict)
+        print "#"*30
+        print "NICS LISTING HERE"
+        display_results(NICS_DICT)
+        print "NICS LISTING OVER"
+        print "#"*30
+        print "HBAs HERE"
+        display_results(HBAS_DICT)
+        print "HBAs listing over"
+        print "#"*30
+        print "MY PASSED PRODUCTS"
+        pprint.pprint(MACHINE_DICT['pass'])
+        print "#"*30
+        print "MY FAIL PRODUCTS"
+        pprint.pprint(MACHINE_DICT['fail'])
+        print "#"*30, "FAILED_DICT below"
+    display_results(FAILED_DICT)
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("-f", "--file", dest="filename", required=True,
+    PARSER = ArgumentParser()
+    PARSER.add_argument("-f", "--file", dest="filename", required=True,
                         help="ACK tar file")
-    args = parser.parse_args()
-    main(args)
+    ARGS = PARSER.parse_args()
+    main(ARGS)

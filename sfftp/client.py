@@ -12,7 +12,7 @@ class SFFTPClient(object):
         info = netrc.netrc("/home/sagnikd/.netrc")
         creds = info.authenticators(self.machine)
         if creds:
-            (user, _, password) = creds # pylint: disable=W0633
+            (user, _, password) = creds  # pylint: disable=W0633
         else:
             print("User credentials not present in .netrc for %s"
                   % self.machine)

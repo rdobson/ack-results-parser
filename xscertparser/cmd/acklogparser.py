@@ -183,8 +183,8 @@ def count_test_failures(tarfilename):
     return (count, test_conf)
 
 
-def main(options):
-    """main function"""
+def do_parse(options):
+    """do_parse function"""
     tarfilename = options.filename  # downloadACK(runjob, runmachine)
     xenrtmachine = None  # runmachine
     global SERVER_DICT
@@ -238,9 +238,11 @@ def main(options):
         print "#"*30, "FAILED_DICT below"
     display_results(FAILED_DICT)
 
-if __name__ == "__main__":
-    PARSER = ArgumentParser()
-    PARSER.add_argument("-f", "--file", dest="filename", required=True,
+
+def main():
+    """Entry point"""
+    parser = ArgumentParser()
+    parser.add_argument("-f", "--file", dest="filename", required=True,
                         help="ACK tar file")
-    ARGS = PARSER.parse_args()
-    main(ARGS)
+    args = parser.parse_args()
+    do_parse(args)

@@ -49,8 +49,8 @@ class RemoteCopyToCRD(object):  # pylint: disable=R0903
         return self.crd_ticket
 
 
-def main(options):
-    """Main function"""
+def process_submission(options):
+    """process submission function"""
     #Dictionary which maps the Folder directory with the type
     tag_dict = {'server': 'Servers',
                 'stor': 'Storage Arrays',
@@ -137,7 +137,8 @@ def get_doc_attachment(master_ticket):
     return (None, None)
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point"""
     argParser = ArgumentParser()  # pylint: disable=C0103
     argParser.add_argument("-t", "--ticket", dest="ticket", required=True,
                            help="HCL-435,(server|stor|nic|hba|cna|gpu|dd)," +
@@ -146,4 +147,4 @@ if __name__ == "__main__":
     argParser.add_argument("-v", "--version", dest="version", required=False)
     argParser.add_argument("-n", "--name", dest="name", required=False)
     cmdargs = argParser.parse_args()  # pylint: disable=C0103
-    main(cmdargs)
+    process_submission(cmdargs)

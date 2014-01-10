@@ -210,8 +210,10 @@ def do_parse(options):
             if SERVER_DICT['product'] not in MACHINE_DICT['pass']:
                 if SERVER_DICT['product'] not in MACHINE_DICT['fail']:
                     MACHINE_DICT['fail'].append(SERVER_DICT['product'])
-            print ("*******%s tests FAILED for %s *********" %
-                   (count, xenrtmachine))
+            print "*******%s tests FAILED for %s *********" % (
+                count,
+                xenrtmachine,
+                )
         else:
             FAILED_DICT[SERVER_DICT['product']] = exception_list
     else:

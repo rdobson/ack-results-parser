@@ -1,7 +1,7 @@
 """Entry point script for parsing specified log files"""
 
 from argparse import ArgumentParser
-import tarfile
+from xscertparser.utils import extract_file_from_tar
 import os
 import re
 import xml.dom.minidom
@@ -25,16 +25,6 @@ SERVER_DICT = {
     'nics': [],
     'hbas': [],
     }
-
-
-def extract_file_from_tar(tarfilename, filename, dest):
-    """Extract a specified file from a tar archive"""
-    tarf = tarfile.open(tarfilename)  # tarfilename is path of tar
-    path = filter(lambda x: os.path.basename(x) == filename, tarf.getnames())
-    if not len(path):
-        path = filter(lambda x: re.search(filename, x), tarf.getnames())
-    map(lambda x: tarf.extract(x, path=dest), path)
-    return os.path.join(dest, path[0])
 
 
 def result_parser(tarfilename, logsubdir):  # pylint: disable=R0914,R0912

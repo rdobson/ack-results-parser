@@ -21,14 +21,14 @@ class TarTestCase(unittest.TestCase):
     def setUp(self):
         """Initialise the test class by creating a tarfile."""
         tmp_dir = tempfile.mkdtemp()
-        subdir_n = 'files'
-        os.mkdir("%s/%s" % (tmp_dir, subdir_n))
+        self.subdir_n = 'files'
+        os.mkdir("%s/%s" % (tmp_dir, self.subdir_n))
 
         self.TAR_FILE = "%s/test.tar" % tmp_dir
         tar = tarfile.open(self.TAR_FILE, 'w')
 
         for filename, data in self.TAR_FILES.items():
-            tmp_file = "%s/%s/%s" % (tmp_dir, subdir_n, filename)
+            tmp_file = "%s/%s/%s" % (tmp_dir, self.subdir_n, filename)
             fileh = open(tmp_file, 'w')
             fileh.write(data)
             fileh.close()
@@ -36,10 +36,9 @@ class TarTestCase(unittest.TestCase):
 
         tar.close()
 
-    def test_extract_file_from_tar(self):
+    def _extract_file_from_tar(self, key):
         """Test the means of extracting a file"""
         tmp_dir = tempfile.mkdtemp()
-        key = 'testfile3'
         testfile = extract_file_from_tar(self.TAR_FILE,
                                          key,
                                          tmp_dir)
@@ -48,3 +47,14 @@ class TarTestCase(unittest.TestCase):
         fh.close()
 
         self.assertEqual(data, self.TAR_FILES[key])
+
+    def test_extract_file_from_tar_with_basename(self):
+        """Test the means of extracting a file"""
+        self._extract_file_from_tar('testfile3')
+
+    def test_extract_file_from_tar_with_path(self):
+        """Test the means of extracting a file"""
+        self._extract_file_from_tar('%s/testfile3' % self.subdir_n)
+    
+        
+    

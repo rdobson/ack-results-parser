@@ -6,7 +6,7 @@ from xsjira.models import Task, HCLSubmission, GenericSubmission
 from sfftp.client import SFFTPClient
 from argparse import ArgumentParser
 
-SERVER_URL = 'https://tracker-test.uk.xensource.com'
+SERVER_URL = 'https://tracker.vmd.citrix.com'
 
 JIRA = JIRA(options={'server': SERVER_URL},
             )

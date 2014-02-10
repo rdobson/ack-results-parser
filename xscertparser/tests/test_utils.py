@@ -22,6 +22,7 @@ class TarTestCase(unittest.TestCase):
         """Initialise the test class by creating a tarfile."""
         tmp_dir = tempfile.mkdtemp()
         self.subdir_n = 'files'
+        self.subdir_1 = 'folder'
         os.mkdir("%s/%s" % (tmp_dir, self.subdir_n))
 
         self.TAR_FILE = "%s/test.tar" % tmp_dir
@@ -56,5 +57,7 @@ class TarTestCase(unittest.TestCase):
         """Test the means of extracting a file"""
         self._extract_file_from_tar('%s/testfile3' % self.subdir_n)
     
-        
+    def test_extract_file_from_tar_with_part_filename(self):    
+        """Test the means of extracting a file"""
+        self._extract_file_from_tar('')
     

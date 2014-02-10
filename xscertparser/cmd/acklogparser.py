@@ -1,7 +1,7 @@
 """Entry point script for parsing specified log files"""
 
 from argparse import ArgumentParser
-from xscertparser.utils import extract_file_from_tar
+from xscertparser.utils import extract_file_from_tar#, get_tarpaths_using_regex
 import os
 import re
 import xml.dom.minidom
@@ -29,53 +29,55 @@ SERVER_DICT = {
 
 def result_parser(tarfilename, logsubdir):  # pylint: disable=R0914,R0912
     """Parse a specified log archive"""
-    bugtools_path = extract_file_from_tar(tarfilename=tarfilename,
-                                          filename="bug-report",
-                                          dest=logsubdir)
+    bugtool_path = extract_file_from_tar(tarfilepath=tarfilename,
+                                          fpath="bug-report", 
+                                          dest=logsubdir, 
+                                          fullpathknown=False)
     testconf_path = extract_file_from_tar(tarfilename,
                                           'test_run.conf',
-                                          logsubdir)
+                                          logsubdir,
+                                          fullpathknown=False)
     dmidecode_path = extract_file_from_tar(
-        os.path.join(logsubdir, bugtools_path),
+        os.path.join(logsubdir, bugtool_path),
         'dmidecode.out',
         logsubdir,
-        )
-    # xapi_db_path = extract_file_from_tar (os.path.join(logsubdir,
+        False)
+    # xapi_db_path = extract_from_tar_with_bname (os.path.join(logsubdir,
     # --> bugtools_path), 'xapi-db.xml', logsubdir)
     lspcivv_path = extract_file_from_tar(
-        os.path.join(logsubdir, bugtools_path),
+        os.path.join(logsubdir, bugtool_path),
         'lspci-vv.out',
-        logsubdir
-        )
+        logsubdir,
+        False)
     # get NIC Names, CPU
     test_conf = xml.dom.minidom.parse(open(testconf_path))
 
     # XS-version
     for version in test_conf.getElementsByTagName("global_config"):
         if 'xs_version' in version.attributes.keys():
-            SERVER_DICT['xs_version'] = version.attributes['xs_version']
+            SERVER_DICT['xs_version'] = version.attributes['xs_version'].value
 
     # CPU info and HBA pci-id info
     hba_bus_id_list = []
     for device in test_conf.getElementsByTagName("device"):
         if 'family' in device.attributes.keys():
-            SERVER_DICT['family'] = device.attributes['family']
+            SERVER_DICT['family'] = device.attributes['family'].value
         if 'stepping' in device.attributes.keys():
-            SERVER_DICT['stepping'] = device.attributes['stepping']
+            SERVER_DICT['stepping'] = device.attributes['stepping'].value
         if 'model' in device.attributes.keys():
-            SERVER_DICT['model'] = device.attributes['model']
+            SERVER_DICT['model'] = device.attributes['model'].value
         if 'modelname' in device.attributes.keys():
-            SERVER_DICT['modelname'] = device.attributes['modelname']
+            SERVER_DICT['modelname'] = device.attributes['modelname'].value
         if 'socket_count' in device.attributes.keys():
-            SERVER_DICT['sockets'] = device.attributes['socket_count']
+            SERVER_DICT['sockets'] = device.attributes['socket_count'].value
         if 'PCI_description' in device.attributes.keys():
-            if device.attributes['PCI_description'] \
+            if device.attributes['PCI_description'].value \
                     not in SERVER_DICT['nics']:
                 SERVER_DICT['nics'].append(
-                    device.attributes['PCI_description']
+                    device.attributes['PCI_description'].value
                     )
         if 'device' in device.attributes.keys():
-            hba_bus_id_list.append(device.attributes['id'])
+            hba_bus_id_list.append(device.attributes['id'].value)
 
     # Chassis used info                 i
     lines = open(dmidecode_path).readlines()
@@ -90,7 +92,7 @@ def result_parser(tarfilename, logsubdir):  # pylint: disable=R0914,R0912
                     break
             break
     # vendor name
-    for i in range(len(lines)):
+    for i in range(len(lines)): 
         if re.search("System Information", lines[i]):
             for j in range(len(lines[i:])):
                 if re.search("Manufacturer", lines[j+i]):
@@ -132,7 +134,7 @@ def result_parser(tarfilename, logsubdir):  # pylint: disable=R0914,R0912
         SERVER_DICT['hbas'].append(re.findall(r'.*: ([\w\s\-\(\)\/\[\]]+)',
                                               lines[i])[0].strip())
 
-    return dict
+    return SERVER_DICT
 
 
 def display_results(resdict, keys=None):
@@ -163,7 +165,7 @@ def display_results(resdict, keys=None):
 def count_test_failures(tarfilename):
     """From a tar file, count failures"""
     testconf_path = extract_file_from_tar(tarfilename, 'test_run.conf',
-                                          os.getcwd())
+                                          os.getcwd(), fullpathknown=False)
     test_conf = xml.dom.minidom.parse(open(testconf_path))
     count = 0
     for result in test_conf.getElementsByTagName('result'):
@@ -184,7 +186,7 @@ def do_parse(options):
 
     (count, test_conf) = count_test_failures(tarfilename)
     testconf_path = extract_file_from_tar(tarfilename, 'test_run.conf',
-                                          os.getcwd())
+                                          os.getcwd(), fullpathknown=False)
     test_conf = xml.dom.minidom.parse(open(testconf_path))
 
     # fail product lists

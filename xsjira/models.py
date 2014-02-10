@@ -14,7 +14,7 @@ class JiraTicket(object):
         self.tid = ticket_id
         self.issue = jira.issue(ticket_id, expand="attachment")
         self.key = self.issue.key
-        self.server_url = None  # TODO: set based on Jira object
+        self.server_url = self.jira.client_info()  # TODO: set based on Jira object
         self.validate()
 
     def get_server_url(self):

@@ -20,7 +20,6 @@ class SFFTPClient(object):
 
     def upload(self, upload_filepath, upload_path):
         """Uploads file to current directory on sharefile"""
-
         filename = upload_path.split('/')[-1]
 
         for directory in upload_path.split('/')[1:-1]:

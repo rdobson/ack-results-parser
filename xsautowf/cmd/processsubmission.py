@@ -84,7 +84,7 @@ def process_submission(options):
     #For non HCL Submission, we need additional parameters as below
     version = options.version
 
-    if options.name is None and ticket.get_device_tested() is not None:
+    if not options.name and ticket.get_device_tested():
         product_name = ticket.get_device_tested()
     else:
         product_name = options.name
@@ -94,7 +94,7 @@ def process_submission(options):
         print "%s found.\nExtracting Product Info.." % ack_filename
         adict = ticket.get_ack_attachment_dict(ack_path)
         
-        if version is None:        
+        if not version:        
             version = adict['xs_version']
 
         #if Device Tested is empty, product name will be taken from result dict
@@ -119,10 +119,9 @@ def process_submission(options):
     zippath = ticket.get_attachmentzip_path(ticket.issue.id)
     SFFTPClient().upload(zippath, upload_path)
     
-    #RemoteCopy to CRD. Not reqd if it is DD submission or a GPU
-    if options.crddup == 'True' and not re.search('CRD', options.ticket): 
+    if options.crddup and not re.search('CRD', options.ticket): 
         ticket2 = RemoteCopyToCRD().run(ticket)
-        if ticket2 is not None:
+        if ticket2 :
             print "%s Created" % ticket2.key
             print ticket2.get_summary()
 

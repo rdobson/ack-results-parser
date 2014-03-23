@@ -21,27 +21,33 @@ class TarTestCase(unittest.TestCase):
 
     def setUp(self):
         """Initialise the test class by creating a tarfile."""
-        tmp_dir = tempfile.mkdtemp()
-        self.subdir = 'subdir'
-        os.mkdir("%s/%s" % (tmp_dir, self.subdir))
-
-        self.TAR_FILE = "%s/test.tar" % tmp_dir
-        tar = tarfile.open(self.TAR_FILE, 'w')
+        tmp_src_dir = tempfile.mkdtemp()
+        self.subdir_n = 'subdir'
+        os.mkdir("%s/%s" % (tmp_src_dir, self.subdir_n))
+        os.chdir(tmp_src_dir)
+        self.TAR_FILE = "%s/test.tar.gz" % tmp_src_dir
+        tar = tarfile.open(self.TAR_FILE, 'w:gz')
 
         for filename, data in self.TAR_FILES.items():
-            tmp_file = "%s/%s/%s" % (tmp_dir, self.subdir, filename)
+            tmp_file = "%s/%s" % (self.subdir_n, filename)
             fileh = open(tmp_file, 'w')
             fileh.write(data)
             fileh.close()
             tar.add(tmp_file)
                 
         tar.close()
+        print 'This is the input self.TARFILE %s' % self.TAR_FILE
+
 
     def _extract_file_from_tar(self, fpath, fullpathknown=True):
         """Test the means of extracting a file"""
-        tmp_dir = tempfile.mkdtemp()
-        testfile = extract_file_from_tar(self.TAR_FILE, fpath,
-                                         tmp_dir, fullpathknown)
+        tmp_dest_dir = tempfile.mkdtemp()
+        print 'This is the destination folder %s' % tmp_dest_dir
+        print 'This is the file that you want to extract: %s' % fpath
+        tarf = tarfile.open(self.TAR_FILE, 'r')
+        print 'tarf.name: %s \n tarf.getnames():%s \n SAGNIK' % (tarf.name, tarf.getnames())
+        testfile = extract_file_from_tar(tarf, fpath, tmp_dest_dir, 
+                                         fullpathknown)
         fh = open(testfile, 'r')
         data = fh.read()
         fh.close()
@@ -51,7 +57,8 @@ class TarTestCase(unittest.TestCase):
 
     def test_extraction_using_fullpath(self):
         """Test the means of extracting a file"""
-        self._extract_file_from_tar('%s/testfile3' % self.subdir)
+        print 'This is the input self.TARFILE %s' % self.TAR_FILE
+        self._extract_file_from_tar('/subdir/testfile3')
     
     def testp_extraction_using_regex(self):    
         """Postive Test to test the means of extracting a file"""

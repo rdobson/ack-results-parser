@@ -1,7 +1,7 @@
 """Entry point script for parsing specified log files"""
 
 from argparse import ArgumentParser
-from xscertparser.utils import extract_file_from_tar#, get_tarpaths_using_regex
+from xscertparser.utils import extract_file_from_tar
 import os
 import re
 import xml.dom.minidom

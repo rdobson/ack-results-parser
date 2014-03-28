@@ -5,7 +5,7 @@ import tempfile
 import tarfile
 import os
 from xscertparser.utils import extract_file_from_tar
-
+import re
 
 class TarTestCase(unittest.TestCase):
     """Module for manipulating tar files"""
@@ -56,22 +56,19 @@ class TarTestCase(unittest.TestCase):
         print 'This is the input self.TARFILE %s' % self.TAR_FILE
         self._extract_file_from_tar('subdir/testfile3')
     
-    def testp_extraction_using_regex(self):    
+    def test_pextraction_using_regex(self):    
         """Postive Test to test the means of extracting a file"""
-        self._extract_file_from_tar('testfile2', False)
+        self._extract_file_from_tar('testfile3', False)
 
-    def testn_extraction_using_regex(self):
+    def test_nextraction_using_regex(self):
         """Negative Test to test the means of extracting a file"""   
         try:
             self._extract_file_from_tar('testfile',False)
         except Exception, e:
+            if 'None or more than one' not in str(e):
+                raise e
             print "Returned exception as expected for an entry with \
                    non-unique regex"
-            
-
-
-
-
 
 
 

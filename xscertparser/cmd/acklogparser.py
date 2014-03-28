@@ -30,9 +30,9 @@ SERVER_DICT = {
 def result_parser(tarfilename, logsubdir):  # pylint: disable=R0914,R0912
     """Parse a specified log archive"""
     bugtool_path = extract_file_from_tar(tarfilepath=tarfilename,
-                                          fpath="bug-report", 
-                                          dest=logsubdir, 
-                                          fullpathknown=False)
+                                         fpath="bug-report",
+                                         dest=logsubdir,
+                                         fullpathknown=False)
     testconf_path = extract_file_from_tar(tarfilename,
                                           'test_run.conf',
                                           logsubdir,
@@ -92,7 +92,7 @@ def result_parser(tarfilename, logsubdir):  # pylint: disable=R0914,R0912
                     break
             break
     # vendor name
-    for i in range(len(lines)): 
+    for i in range(len(lines)):
         if re.search("System Information", lines[i]):
             for j in range(len(lines[i:])):
                 if re.search("Manufacturer", lines[j+i]):

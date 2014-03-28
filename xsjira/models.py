@@ -14,7 +14,7 @@ class JiraTicket(object):
         self.tid = ticket_id
         self.issue = jira.issue(ticket_id, expand="attachment")
         self.key = self.issue.key
-        self.server_url = self.jira.client_info()  
+        self.server_url = self.jira.client_info()
         self.validate()
 
     def get_server_url(self):
@@ -56,7 +56,7 @@ class JiraTicket(object):
 
     def create_issue_link(self, remote_key):
         """:param remote_key is key of the remote ticket to be linked"""
-        return self.jira.create_issue_link('Related', self.key, 
+        return self.jira.create_issue_link('Related', self.key,
                                            remote_key)
 
     def add_comment(self, comment):
@@ -96,7 +96,7 @@ class HCLSubmission(JiraTicket):
     def validate(self):
         """Override the validate class to ensure correct type"""
         if self.get_type() != 'HCL Submission':
-            raise Exception("Not a HCL Submission! (%s)"%self.get_type())
+            raise Exception("Not a HCL Submission! (%s)" % self.get_type())
 
     def get_ack_attachment(self):
         """Returns tuple of (ack_path, ack_filename)"""
@@ -108,9 +108,9 @@ class HCLSubmission(JiraTicket):
 
     def get_ack_attachment_dict(self, att_path):  # pylint: disable=R0201
         """if type ==Server, Prints dict and returns Dict"""
-        #TODO Add type check
+        # TODO Add type check
         result_dict = result_parser(att_path, os.getcwd())
-        #TODO Remove printing Dict here :
+        # TODO Remove printing Dict here :
         display_results(result_dict)
         return result_dict
 

@@ -80,6 +80,18 @@ class JiraTicket(object):
         """Add an attachment to this issue"""
         return self.jira.add_attachment(self.issue, filepath, filename)
 
+    def get_reporter(self):
+        """Returns the reporter"""
+        return self.issue.fields.reporter.name
+
+    def add_watcher(self, name):
+        """Add watcher"""
+        return self.jira.add_watcher(name)
+
+    def change_reporter(self, name):
+        """Edits metadata to change reporter"""
+        return self.issue.update({'reporter': {'name': '%s' % name}})
+
 
 class EpicTicket(JiraTicket):
     """Class for representing epic tickets"""

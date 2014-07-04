@@ -16,38 +16,40 @@ class RemoteCopyToCRD(object):  # pylint: disable=R0903
     """Create remote copy in Project CRD of given ticket for
        update marketplace.
     """
-    #  TODO
-    crd_user = 'sagnikd'
-    crd_pjt_key = 'HCL'
-
     def __init__(self):
         self.crd_ticket = None
+        self.crd_user = 'gauravchh'
+        self.crd_pjt_key = 'CRD'
 
-    def run(self, master_ticket):
+    def do_remote_copy(self, master_ticket):
         """Perform the remote copy"""
         (filepath, filename) = get_doc_attachment(master_ticket)
-
-        ticket = master_ticket.create_issue({'project': {'key':
-                                                         self.crd_pjt_key},
-                                             'summary': 'CLONE Of %s' %
-                                             master_ticket.get_summary(),
-                                             'issuetype': {'name': 'Task'},
-                                             'description': 'Please add' +
-                                             ' the device to marketplace'})
-
-        self.crd_ticket = Task(JIRA, ticket.key)
+        reporter = master_ticket.get_reporter()
+        crd_tkt = master_ticket.create_issue({'project': {'key':
+                                              self.crd_pjt_key},
+                                              'summary': 'CLONE Of %s' %
+                                              master_ticket.get_summary(),
+                                              'issuetype': {'name': 'Task'},
+                                              'description': 'Please add' +
+                                              ' the device to marketplace', })
+        self.crd_ticket = Task(JIRA, crd_tkt.key)
         self.crd_ticket.create_issue_link(master_ticket.key)
+        self.crd_ticket.change_reporter(reporter)
 
         add_hcl_link_comment(master_ticket, self.crd_ticket)
 
         if filepath:
             self.crd_ticket.add_attachment(filepath, filename)
+        for att in master_ticket.issue.fields.attachment:
+            self.crd_ticket.add_attachment(att.id, att.filename)
 
         self.crd_ticket.add_comment(
             "Hi Gaurav,\nCould you please update this to market " +
             "place and attach the link.\nThanks,\nSagnik"
             )
         self.crd_ticket.assign_issue(self.crd_user)
+        print "%s Created" % self.crd_ticket.key
+        print self.crd_ticket.get_summary()
         return self.crd_ticket
 
 
@@ -74,11 +76,17 @@ def process_submission(options):
         ]
 
     key = options.subtype
-    if tag_dict[key] == 'server':
+    if key is not 'dd':
         ticket = HCLSubmission(JIRA, options.ticket)
     else:
         ticket = GenericSubmission(JIRA, options.ticket)
+
     print ticket.get_summary()
+
+    # If copy flag is set, move a copy to the project CRD
+    if options.crddup:
+        RemoteCopyToCRD().do_remote_copy(ticket)
+        print "## Remote Copy to CRD Done ##\n"
 
     #  For non HCL Submission, we need additional parameters as below
     version = options.version
@@ -88,7 +96,7 @@ def process_submission(options):
     else:
         product_name = options.name
     #  To display the ack-submission if there is one:
-    if ticket.get_type() == 'HCL Submission' and key == 'server':
+    if ticket.get_type() == 'HCL Submission' and key in ['server', 'nic']:
         (ack_path, ack_filename) = ticket.get_ack_attachment()
         print "%s found.\nExtracting Product Info.." % ack_filename
         adict = ticket.get_ack_attachment_dict(ack_path)
@@ -97,7 +105,7 @@ def process_submission(options):
             version = adict['xs_version']
 
         # if Device Tested is empty, take product name wfrom result dict
-        if product_name is None:
+        if not product_name:
             product_name = "%s %s" % (adict['system-manufacturer'].strip(),
                                       adict['product'].strip())
 
@@ -117,12 +125,6 @@ def process_submission(options):
     # Path of zipfile that will be stored
     zippath = ticket.get_attachmentzip_path(ticket.issue.id)
     SFFTPClient().upload(zippath, upload_path)
-
-    if options.crddup and not re.search('CRD', options.ticket):
-        ticket2 = RemoteCopyToCRD().run(ticket)
-        if ticket2:
-            print "%s Created" % ticket2.key
-            print ticket2.get_summary()
 
 
 def add_hcl_link_comment(master_ticket, crd_ticket):

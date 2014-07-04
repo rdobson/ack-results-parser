@@ -20,6 +20,7 @@ setup(
         'console_scripts': [
             'acklogparser = xscertparser.cmd.acklogparser:main',
             'processsubmission = xsautowf.cmd.processsubmission:main',
+            'hclanalysis = xsautowf.cmd.hclanalysis:main',
         ],
     },
 )

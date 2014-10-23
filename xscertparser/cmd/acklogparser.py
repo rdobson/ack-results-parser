@@ -2,10 +2,16 @@
 
 from argparse import ArgumentParser
 from xscertparser.utils import extract_file_from_tar
+from xscertparser import xmltojson
 import os
 import re
 import xml.dom.minidom
 import pprint
+from hwinfo.tools import inspector
+import tempfile
+import shutil
+import tarfile
+from pymongo import MongoClient
 # import models
 
 NICS_DICT = {}
@@ -187,7 +193,15 @@ def do_parse(options):
     (count, test_conf) = count_test_failures(tarfilename)
     testconf_path = extract_file_from_tar(tarfilename, 'test_run.conf',
                                           os.getcwd(), fullpathknown=False)
-    test_conf = xml.dom.minidom.parse(open(testconf_path))
+    fh = open(testconf_path, 'r')
+    test_conf_data = fh.read()
+    fh.close()
+
+    test_conf = xml.dom.minidom.parseString(test_conf_data)
+
+    if options.post:
+        json = xmltojson.ack_xml_to_json(test_conf_data)
+        print json
 
     # fail product lists
     if count > 0:
@@ -232,11 +246,82 @@ def do_parse(options):
         print "#"*30, "FAILED_DICT below"
     display_results(FAILED_DICT)
 
+def get_json_from_test_run(tar_filename):
+    testconf_path = extract_file_from_tar(tar_filename, 'test_run.conf',
+                                          os.getcwd(), fullpathknown=False)
+    fh = open(testconf_path, 'r')
+    test_conf_data = fh.read()
+    fh.close()
+
+    test_conf = xml.dom.minidom.parseString(test_conf_data)
+    json = xmltojson.ack_xml_to_json(test_conf_data)
+    return json
+
+def post_json_to_mongodb(json):
+    client = MongoClient('mongodb://localhost:27018/')
+    db = client.certification
+    sub = db.submissions
+    sub_id = sub.insert(json)
+    return sub_id
+
+def validate_test_run(json):
+    for dev in json['devices']:
+        print ""
+        if dev['tag'] == 'NA':
+            print dev['PCI_description']
+        if dev['tag'] == 'CPU':
+            print dev['modelname']
+        if dev['tag'] == 'LS':
+            print dev['driver']
+        if dev['tag'] == 'OP':
+            print dev['version']
+
+        passed = []
+        failed = []
+        for test in dev['tests']:
+            if test['result'] == "pass":
+                passed.append(test)
+            else:
+                failed.append(test)
+
+        if passed:
+            print "Passed:"
+        for t in passed:
+            print t['test_name']
+        print ""
+
+        if failed:
+            print "Failed:"
+        for t in failed:
+            print t['test_name']
+
+def parse_submission(args):
+    # Extract the submission
+    tmpdir = tempfile.mkdtemp()
+    bugtool = inspector.find_in_tarball(args.filename,'tar.bz2')
+    tar = tarfile.open(args.filename)
+    t = tar.extract(bugtool, tmpdir)
+
+    tarball_path = "%s/%s" % (tmpdir, bugtool)
+    host = inspector.HostFromTarball(tarball_path)
+
+    inspector.print_system_info(host, ['bios', 'cpu', 'nic', 'storage'])
+    shutil.rmtree(tmpdir)
+
+    json = get_json_from_test_run(args.filename)
+
+    #Check for failures
+    validate_test_run(json)
+
+    if args.post:
+        print post_json_to_mongodb(json)
 
 def main():
     """Entry point"""
     parser = ArgumentParser()
     parser.add_argument("-f", "--file", dest="filename", required=True,
                         help="ACK tar file")
+    parser.add_argument("-p", "--post", dest="post", action="store_true")
     args = parser.parse_args()
-    do_parse(args)
+    parse_submission(args)
+

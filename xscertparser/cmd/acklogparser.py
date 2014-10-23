@@ -264,6 +264,37 @@ def post_json_to_mongodb(json):
     sub_id = sub.insert(json)
     return sub_id
 
+def validate_test_run(json):
+    for dev in json['devices']:
+        print ""
+        if dev['tag'] == 'NA':
+            print dev['PCI_description']
+        if dev['tag'] == 'CPU':
+            print dev['modelname']
+        if dev['tag'] == 'LS':
+            print dev['driver']
+        if dev['tag'] == 'OP':
+            print dev['version']
+
+        passed = []
+        failed = []
+        for test in dev['tests']:
+            if test['result'] == "pass":
+                passed.append(test)
+            else:
+                failed.append(test)
+
+        if passed:
+            print "Passed:"
+        for t in passed:
+            print t['test_name']
+        print ""
+
+        if failed:
+            print "Failed:"
+        for t in failed:
+            print t['test_name']
+
 def parse_submission(args):
     # Extract the submission
     tmpdir = tempfile.mkdtemp()
@@ -277,8 +308,12 @@ def parse_submission(args):
     inspector.print_system_info(host, ['bios', 'cpu', 'nic', 'storage'])
     shutil.rmtree(tmpdir)
 
+    json = get_json_from_test_run(args.filename)
+
+    #Check for failures
+    validate_test_run(json)
+
     if args.post:
-        json = get_json_from_test_run(args.filename)
         print post_json_to_mongodb(json)
 
 def main():

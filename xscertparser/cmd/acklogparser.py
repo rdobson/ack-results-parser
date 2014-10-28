@@ -278,11 +278,15 @@ def validate_test_run(json):
 
         passed = []
         failed = []
+        ignored = []
+
         for test in dev['tests']:
             if test['result'] == "pass":
                 passed.append(test)
-            else:
+            elif test['result'] == "fail":
                 failed.append(test)
+            else:
+                ignored.append(test)
 
         if passed:
             print "Passed:"
@@ -293,6 +297,11 @@ def validate_test_run(json):
         if failed:
             print "Failed:"
         for t in failed:
+            print t['test_name']
+
+        if ignored:
+            print "Ignored (skipped/other):"
+        for t in ignored:
             print t['test_name']
 
 def parse_submission(args):

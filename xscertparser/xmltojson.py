@@ -52,10 +52,13 @@ def get_test_class_record(node):
     #config = get_attributes(node)
     #for k, v in config.iteritems():
     #    rec[k] = v
+    class_name = get_attributes(node)['name']
 
     meths = []
     for method_node in get_child_elems(node):
         method_rec = get_test_method_record(method_node)
+        if 'test_name' not in method_rec:
+            method_rec['test_name'] = "%s.%s" % (class_name, method_rec['name'])
         meths.append(method_rec)
 
     #rec['methods'] = meths

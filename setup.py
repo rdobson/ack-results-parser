@@ -11,7 +11,7 @@ setup(
     ]),
     url="http://unspeicifed.yet",
     packages=find_packages(),
-    install_requires=['jira-python', 'python-hwinfo', 'pymongo'],
+    install_requires=['jira', 'python-hwinfo', 'pymongo'],
     tests_require=[
         "nose",
     ],

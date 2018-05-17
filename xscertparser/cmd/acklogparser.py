@@ -269,12 +269,20 @@ def validate_test_run(json):
         print ""
         if dev['tag'] == 'NA':
             print dev['PCI_description']
+            print "Driver: %s %s" % (dev['Driver'], dev['Driver_version'])
+            print "Firmware: %s" % dev['Firmware_version']
         if dev['tag'] == 'CPU':
             print dev['modelname']
         if dev['tag'] == 'LS':
-            print dev['driver']
+            if dev.has_key('PCI_description'):
+                print dev['PCI_description']
+            else:
+                print dev['driver']
         if dev['tag'] == 'OP':
-            print dev['version']
+            if dev.has_key('product_version'):
+                print dev['product_version']
+            else:
+                print dev['version']
 
         passed = []
         failed = []

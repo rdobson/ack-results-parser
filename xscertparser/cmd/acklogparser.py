@@ -246,6 +246,7 @@ def do_parse(options):
         print "#"*30, "FAILED_DICT below"
     display_results(FAILED_DICT)
 
+
 def get_json_from_test_run(tar_filename):
     testconf_path = extract_file_from_tar(tar_filename, 'test_run.conf',
                                           os.getcwd(), fullpathknown=False)
@@ -257,12 +258,14 @@ def get_json_from_test_run(tar_filename):
     json = xmltojson.ack_xml_to_json(test_conf_data)
     return json
 
+
 def post_json_to_mongodb(json):
     client = MongoClient('mongodb://localhost:27018/')
     db = client.certification
     sub = db.submissions
     sub_id = sub.insert(json)
     return sub_id
+
 
 def validate_test_run(json):
     for dev in json['devices']:
@@ -274,12 +277,12 @@ def validate_test_run(json):
         if dev['tag'] == 'CPU':
             print dev['modelname']
         if dev['tag'] == 'LS':
-            if dev.has_key('PCI_description'):
+            if 'product_version' in dev:
                 print dev['PCI_description']
             else:
                 print dev['driver']
         if dev['tag'] == 'OP':
-            if dev.has_key('product_version'):
+            if 'product_version' in dev:
                 print dev['product_version']
             else:
                 print dev['version']
@@ -312,10 +315,11 @@ def validate_test_run(json):
         for t in ignored:
             print t['test_name']
 
+
 def parse_submission(args):
     # Extract the submission
     tmpdir = tempfile.mkdtemp()
-    bugtool = inspector.find_in_tarball(args.filename,'tar.bz2')
+    bugtool = inspector.find_in_tarball(args.filename, 'tar.bz2')
     tar = tarfile.open(args.filename)
     t = tar.extract(bugtool, tmpdir)
 
@@ -327,11 +331,12 @@ def parse_submission(args):
 
     json = get_json_from_test_run(args.filename)
 
-    #Check for failures
+    # Check for failures
     validate_test_run(json)
 
     if args.post:
         print post_json_to_mongodb(json)
+
 
 def main():
     """Entry point"""
@@ -341,4 +346,3 @@ def main():
     parser.add_argument("-p", "--post", dest="post", action="store_true")
     args = parser.parse_args()
     parse_submission(args)
-

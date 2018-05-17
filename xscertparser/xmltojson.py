@@ -18,14 +18,17 @@ def get_attributes(xml_node):
 
     return rec
 
+
 def get_child_elems(xml_node):
     return [node for node in xml_node.childNodes
-             if node.nodeType == node.ELEMENT_NODE]
+            if node.nodeType == node.ELEMENT_NODE]
+
 
 def get_element_by_tag_name(node, tag):
     nds = node.getElementsByTagName(tag)
     assert(len(nds) == 1)
     return nds[0]
+
 
 def get_text(nodelist):
     rec = []
@@ -33,6 +36,7 @@ def get_text(nodelist):
         if node.nodeType == node.TEXT_NODE:
             rc.append(node.data)
     return ''.join(rc)
+
 
 def get_test_method_record(node):
     rec = {}
@@ -44,13 +48,13 @@ def get_test_method_record(node):
         elif get_attributes(tag):
             rec[tag.tagName] = get_attributes(tag)
 
-
     return rec
 
+
 def get_test_class_record(node):
-    #rec = {}
-    #config = get_attributes(node)
-    #for k, v in config.iteritems():
+    # rec = {}
+    # config = get_attributes(node)
+    # for k, v in config.iteritems():
     #    rec[k] = v
     class_name = get_attributes(node)['name']
 
@@ -58,11 +62,13 @@ def get_test_class_record(node):
     for method_node in get_child_elems(node):
         method_rec = get_test_method_record(method_node)
         if 'test_name' not in method_rec:
-            method_rec['test_name'] = "%s.%s" % (class_name, method_rec['name'])
+            method_rec['test_name'] = \
+                "%s.%s" % (class_name, method_rec['name'])
         meths.append(method_rec)
 
-    #rec['methods'] = meths
+    # rec['methods'] = meths
     return meths
+
 
 def get_device_test_record(node):
     rec = {}
@@ -88,15 +94,15 @@ def ack_xml_to_json(xml_str):
     rec = {}
     dom = xml.dom.minidom.parseString(xml_str)
 
-    #<automated_certification_kit>
+    # <automated_certification_kit>
     kit_params = dom.getElementsByTagName('automated_certification_kit')[0]
     rec['kit'] = get_attributes(kit_params)
 
-    #<globa_config>
+    # <globa_config>
     global_config = dom.getElementsByTagName('global_config')[0]
     rec['global_config'] = get_attributes(global_config)
 
-    #<devices>
+    # <devices>
     devices = dom.getElementsByTagName('device')
 
     devs = []
@@ -116,17 +122,11 @@ def post_json_to_mongodb(uri, json):
     sub_id = sub.insert(json)
     return sub_id
 
-#j = ack_xml_to_json(xml_data)
-
-#print j
-#print json.dumps(j, indent=4, separators=(',',':'))
-
-
-#client = MongoClient('mongodb://localhost:27017/')
-
-#db = client.certification
-#sub = db.submissions
-
-#sub_id = sub.insert(j)
-
-#print sub_id
+# j = ack_xml_to_json(xml_data)
+# print j
+# print json.dumps(j, indent=4, separators=(',',':'))
+# client = MongoClient('mongodb://localhost:27017/')
+# db = client.certification
+# sub = db.submissions
+# sub_id = sub.insert(j)
+# print sub_id

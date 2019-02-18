@@ -31,6 +31,7 @@ SERVER_DICT = {
     'nics': [],
     'hbas': [],
     }
+DRIVER_BLACK_LIST = ["qla4xxx", "qla3xxx", "netxen_nic", "qlge", "qlcnic"]
 
 
 def result_parser(tarfilename, logsubdir):  # pylint: disable=R0914,R0912
@@ -268,12 +269,17 @@ def post_json_to_mongodb(json):
 
 
 def validate_test_run(json):
+    xs_version = json['global_config']['xs_version'].split('.')
+    xs_version = tuple([int(i) for i in xs_version])
+
     for dev in json['devices']:
+        driver = ""
         print ""
         if dev['tag'] == 'NA':
             print dev['PCI_description']
             print "Driver: %s %s" % (dev['Driver'], dev['Driver_version'])
             print "Firmware: %s" % dev['Firmware_version']
+            driver = dev['Driver']
         if dev['tag'] == 'CPU':
             print dev['modelname']
         if dev['tag'] == 'LS':
@@ -281,11 +287,17 @@ def validate_test_run(json):
                 print dev['PCI_description']
             else:
                 print dev['driver']
+                driver = dev['driver']
         if dev['tag'] == 'OP':
             if 'product_version' in dev:
                 print dev['product_version']
             else:
                 print dev['version']
+
+        # CP-30556: Deprecate Marvell (Qlogic) legacy drivers for CH 8.0
+        if xs_version >= (8, 0, 0) and driver in DRIVER_BLACK_LIST:
+            print "Error: The driver is already deprecated, " \
+                    "do not list the hardware on HCL!"
 
         passed = []
         failed = []
